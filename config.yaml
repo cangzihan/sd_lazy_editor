@@ -1,0 +1,4 @@
+database_path: /path/to/images
+pre_label_1: label1
+pre_label_2: label2
+pre_label_3: label3
