@@ -1,0 +1,38 @@
+{
+  "视角": {
+    "正面面对": "straight-on",
+    "侧脸": "profile",
+    "低位视角": "from below",
+    "臀部焦点": "hip focus",
+    "足部焦点": "foot focus",
+    "背后视角": "from behind"
+  },
+  "姿势": {
+    "自拍": "selfie",
+    "站立": "standing",
+    "坐着": "sitting",
+    "蹲着": "squatting",
+    "坐在床上": "sitting on bed",
+    "托腮": "gill support",
+    "抱膝": "huddle, clasp knees",
+    "瑜伽": "yoga",
+    "掀裙子": "skirt_lift",
+    "一字马": "standing split",
+    "鸭子坐": "wariza",
+    "抱胸/遮挡胸部": "hug self"
+  },
+  "手": {
+    "“嘘”手势": "shushing",
+    "伸出双臂": "outstretched arms",
+    "伸出单臂": "outstretched arm",
+    "伸出单手": "outstretched hand",
+    "张开双臂": "spread arms",
+    "手臂放后面": "arms behind back",
+    "双手叉腰": "hands on hips",
+    "手放嘴上": "hand to own mouth",
+    "手放脸上": "hand on own face",
+    "抱自己的腿": "hugging own legs",
+    "隐藏手": "hidden hands",
+    "拨头发": "hand in own hair"
+  }
+}

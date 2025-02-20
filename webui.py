@@ -2,7 +2,7 @@ import os
 os.environ["all_proxy"] = ""
 import cv2
 import gradio as gr
-from gradio_extension import gr_Dropdown_update
+from gradio_extension import gr_Dropdown_update, gr_Slider_update
 
 import yaml
 with open(os.path.join('config.yaml'), "r", encoding='UTF-8') as f:
@@ -143,6 +143,75 @@ def add_one_label_3(labels, new_label):
     return labels
 
 
+def add_global_label(folder_path, target_string, fname):
+    # 遍历文件夹中的所有文件
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith('.txt'):
+                file_path = os.path.join(root, file)
+                with open(file_path, 'r+', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    # 检查文件中是否包含目标字符串
+                    if target_string not in content:
+                        # 如果不包含目标字符串，则在末尾添加
+                        if content:
+                            content += ', ' + target_string
+                        else:
+                            content = target_string
+                        f.seek(0)
+                        f.write(content + '\n')
+                        f.truncate()
+
+    new_label_current, _ = read_image_info(fname, database_path)
+
+    return new_label_current
+
+
+def resize_image(image, width, height):
+    if type(image) is type(None):
+        return None, None
+
+    image_new = cv2.resize(image, (int(width), int(height)))
+    image_new_reverse = cv2.cvtColor(image_new, cv2.COLOR_BGR2RGB)
+
+    save_temp = "resize_%d_%d.png" % (width, height)
+    cv2.imwrite(save_temp, image_new_reverse)
+
+    return image_new, save_temp
+
+
+def resize_info_load(image):
+    if type(image) is type(None):
+        return 512, 512, "拖入一张图片开始"
+
+    h, w = image.shape[0], image.shape[1]
+    show_md = "## 图像信息\n- 宽度:%d\n- 高度:%d" % (w, h)
+    return w, h, show_md
+def crop_ui_update(image):
+    w = image.shape[1]
+    h = image.shape[0]
+
+    return gr_Slider_update(value=0, maximum=h), gr_Slider_update(maximum=h), gr_Slider_update(value=0, maximum=w), gr_Slider_update(maximum=w)
+
+
+def crop_image(image, up, down, left, right):
+    if type(image) is type(None):
+        return None
+
+    if up >= down:
+        up = down-1
+
+    if left >= right:
+        left = right-1
+
+    return image[up:down, left:right, :]
+
+
+def horizion_clip(img):
+    img_new = cv2.flip(img, 1)
+    return img_new
+
+
 with gr.Blocks(theme="Soft") as demo:
     with gr.Tab("Database"):
         with gr.Row():
@@ -170,7 +239,9 @@ with gr.Blocks(theme="Soft") as demo:
                 content_label_2 = gr.Textbox(label="Label 2", value=editor_config["pre_label_2"])
                 add_label_2 = gr.Button("Add")
                 content_label_3 = gr.Textbox(label="Label 3", value=editor_config["pre_label_3"])
-                add_label_3 = gr.Button("Add")
+                with gr.Column():
+                   add_label_3 = gr.Button("Add")
+                   add_label_global = gr.Button("Add for all files")
 
         load_databse.click(data_load, inputs=set_database_path, outputs=img_select)
 
@@ -182,5 +253,47 @@ with gr.Blocks(theme="Soft") as demo:
         add_label_1.click(add_one_label_1, inputs=[img_labels, content_label_1], outputs=img_labels)
         add_label_2.click(add_one_label_2, inputs=[img_labels, content_label_2], outputs=img_labels)
         add_label_3.click(add_one_label_3, inputs=[img_labels, content_label_3], outputs=img_labels)
+        add_label_global.click(add_global_label, inputs=[set_database_path, content_label_3, img_select], outputs=img_labels)
 
-        demo.launch()
+    with gr.Tab(label="Image crop"):
+        with gr.Row():
+            crop_image_ori = gr.Image()
+            crop_image_new = gr.Image()
+        with gr.Row():
+            up_edit = gr.Slider(label="上", value=0, minimum=0, maximum=512)
+            down_edit = gr.Slider(label="下", value=512, minimum=0, maximum=512)
+        with gr.Row():
+            left_edit = gr.Slider(label="左", value=0, minimum=0, maximum=512)
+            right_edit = gr.Slider(label="右", value=512, minimum=0, maximum=512)
+
+    with gr.Tab(label="Image resize"):
+        with gr.Row():
+            with gr.Column():
+                image_resize_origin = gr.Image()
+                with gr.Row():
+                    resize_info = gr.Markdown("拖入一张图片开始")
+                    with gr.Column():
+                        resize_width = gr.Number(label="width", value=512)
+                        resize_height = gr.Number(label="height", value=512)
+                with gr.Row():
+                    button_resize = gr.Button(variant="primary")
+                    button_horizon_clip = gr.Button("Flip")
+
+            with gr.Column():
+                image_resize_new = gr.Image()
+                image_resize_file = gr.File()
+
+    log_info = gr.Markdown()
+
+    up_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
+    down_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
+    left_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
+    right_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
+
+    crop_image_ori.change(crop_ui_update, crop_image_ori, [up_edit, down_edit, left_edit, right_edit])
+    button_horizon_clip.click(horizion_clip, crop_image_new, crop_image_new)
+
+    button_resize.click(resize_image, [image_resize_origin, resize_width, resize_height], [image_resize_new, image_resize_file])
+    image_resize_origin.change(resize_info_load, image_resize_origin, [resize_width, resize_height, resize_info])
+
+    demo.launch()
