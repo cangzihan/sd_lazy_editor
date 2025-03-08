@@ -1,4 +1,7 @@
 import os
+
+import jsonfiler
+
 os.environ["all_proxy"] = ""
 import cv2
 import gradio as gr
@@ -167,6 +170,18 @@ def add_global_label(folder_path, target_string, fname):
     return new_label_current
 
 
+def add_translate_label(labels, prompt_s):
+    new_label = prompt_s.split('##')[-1]
+    label_list = labels.split(', ')
+    if len(labels.replace(' ', '')) == 0:
+        return new_label
+
+    if new_label not in label_list:
+        return f"{labels}, {new_label}"
+
+    return labels
+
+
 def resize_image(image, width, height):
     if type(image) is type(None):
         return None, None
@@ -187,6 +202,8 @@ def resize_info_load(image):
     h, w = image.shape[0], image.shape[1]
     show_md = "## 图像信息\n- 宽度:%d\n- 高度:%d" % (w, h)
     return w, h, show_md
+
+
 def crop_ui_update(image):
     w = image.shape[1]
     h = image.shape[0]
@@ -204,12 +221,42 @@ def crop_image(image, up, down, left, right):
     if left >= right:
         left = right-1
 
-    return image[up:down, left:right, :]
+    return image[up:down, left:right, :], f"({down-up}, {right-left})"
 
 
-def horizion_clip(img):
+def horizion_flip(img):
     img_new = cv2.flip(img, 1)
-    return img_new
+
+    save_temp = "flip.png"
+    img_new_save = cv2.cvtColor(img_new, cv2.COLOR_BGR2RGB)
+    cv2.imwrite(save_temp, img_new_save)
+    return img_new, save_temp
+
+
+def save_one_image(img):
+    save_temp = "crop.png"
+    img_new_save = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    cv2.imwrite(save_temp, img_new_save)
+    return save_temp
+
+
+prompt_dict_CN = jsonfiler.load("prompt_CN2EN.json")
+prompt_list = []
+for type_prompt in prompt_dict_CN:
+    for prompt_ori in prompt_dict_CN[type_prompt]:
+        prompt_list.append(f"{type_prompt}-{prompt_ori}##{prompt_dict_CN[type_prompt][prompt_ori]}")
+
+
+def transfer_img(img):
+    return img
+
+
+def resize_512_512():
+    return 512, 512
+
+
+def resize_1024_1024():
+    return 1024, 1024
 
 
 with gr.Blocks(theme="Soft") as demo:
@@ -243,6 +290,12 @@ with gr.Blocks(theme="Soft") as demo:
                    add_label_3 = gr.Button("Add")
                    add_label_global = gr.Button("Add for all files")
 
+            with gr.Row():
+                prompt_select = gr.Dropdown(prompt_list, label="Prompt CN", value=prompt_list[0])
+                add_label_translate = gr.Button("Add")
+                prompt_select_2 = gr.Dropdown(prompt_list, label="Prompt CN", value=prompt_list[0])
+                add_label_translate_2 = gr.Button("Add")
+
         load_databse.click(data_load, inputs=set_database_path, outputs=img_select)
 
         img_select.change(read_image_info, inputs=[img_select, set_database_path], outputs=[img_labels, player])
@@ -253,18 +306,27 @@ with gr.Blocks(theme="Soft") as demo:
         add_label_1.click(add_one_label_1, inputs=[img_labels, content_label_1], outputs=img_labels)
         add_label_2.click(add_one_label_2, inputs=[img_labels, content_label_2], outputs=img_labels)
         add_label_3.click(add_one_label_3, inputs=[img_labels, content_label_3], outputs=img_labels)
-        add_label_global.click(add_global_label, inputs=[set_database_path, content_label_3, img_select], outputs=img_labels)
+       # add_label_global.click(add_global_label, inputs=[set_database_path, content_label_3, img_select], outputs=img_labels)
+
+        add_label_translate.click(add_translate_label, [img_labels, prompt_select], img_labels)
+        add_label_translate_2.click(add_translate_label, [img_labels, prompt_select_2], img_labels)
 
     with gr.Tab(label="Image crop"):
         with gr.Row():
             crop_image_ori = gr.Image()
-            crop_image_new = gr.Image()
+            with gr.Column():
+                with gr.Row():
+                    save_crop_button = gr.Button("Save")
+                    crop2resize_button = gr.Button("To Resize")
+                crop_image_new = gr.Image()
+
         with gr.Row():
             up_edit = gr.Slider(label="上", value=0, minimum=0, maximum=512)
             down_edit = gr.Slider(label="下", value=512, minimum=0, maximum=512)
         with gr.Row():
             left_edit = gr.Slider(label="左", value=0, minimum=0, maximum=512)
             right_edit = gr.Slider(label="右", value=512, minimum=0, maximum=512)
+        image_crop_file = gr.File()
 
     with gr.Tab(label="Image resize"):
         with gr.Row():
@@ -275,6 +337,9 @@ with gr.Blocks(theme="Soft") as demo:
                     with gr.Column():
                         resize_width = gr.Number(label="width", value=512)
                         resize_height = gr.Number(label="height", value=512)
+                        with gr.Row():
+                            pre_512_resize = gr.Button("512")
+                            pre_1024_resize = gr.Button("1024")
                 with gr.Row():
                     button_resize = gr.Button(variant="primary")
                     button_horizon_clip = gr.Button("Flip")
@@ -285,15 +350,19 @@ with gr.Blocks(theme="Soft") as demo:
 
     log_info = gr.Markdown()
 
-    up_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
-    down_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
-    left_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
-    right_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], crop_image_new)
+    up_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], [crop_image_new, log_info])
+    down_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], [crop_image_new, log_info])
+    left_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], [crop_image_new, log_info])
+    right_edit.change(crop_image, [crop_image_ori, up_edit, down_edit, left_edit, right_edit], [crop_image_new, log_info])
+    save_crop_button.click(save_one_image, crop_image_new, image_crop_file)
+    crop2resize_button.click(transfer_img, crop_image_new, image_resize_origin)
 
     crop_image_ori.change(crop_ui_update, crop_image_ori, [up_edit, down_edit, left_edit, right_edit])
-    button_horizon_clip.click(horizion_clip, crop_image_new, crop_image_new)
 
     button_resize.click(resize_image, [image_resize_origin, resize_width, resize_height], [image_resize_new, image_resize_file])
     image_resize_origin.change(resize_info_load, image_resize_origin, [resize_width, resize_height, resize_info])
+    button_horizon_clip.click(horizion_flip, [image_resize_new], [image_resize_new, image_resize_file])
+    pre_512_resize.click(resize_512_512, None, [resize_width, resize_height])
+    pre_1024_resize.click(resize_1024_1024, None, [resize_width, resize_height])
 
     demo.launch()

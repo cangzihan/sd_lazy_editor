@@ -33,6 +33,39 @@
     "手放脸上": "hand on own face",
     "抱自己的腿": "hugging own legs",
     "隐藏手": "hidden hands",
-    "拨头发": "hand in own hair"
+    "拨头发": "hand in own hair",
+    "美甲": "nail art"
+  },
+  "头发": {
+    "刘海": "bangs",
+    "齐刘海": "blunt bangs",
+    "短发": "short hair",
+    "长发": "long hair,",
+    "马尾": "ponytail",
+    "双马尾": "twintails"
+  },
+  "妆容": {
+    "素颜": "bare-faced",
+    "精致妆容": "exquisite makeup"
+  },
+  "服装": {
+    "吊带裙": "suspender skirt",
+    "水手服": "serafuku",
+    "旗袍": "china dress",
+    "婚纱": "wedding dress"
+  },
+  "人物": {
+    "萝莉": "loli",
+    "百合": "yuri",
+    "熟女": "mature female",
+    "幼女": "infant"
+  },
+  "饰品": {
+    "眼镜": "glasses"
+  },
+  "标签": {
+    "氛围感": "aesthetic",
+    "原相机": "original photo",
+    "中式古典": "traditional Chinese style"
   }
 }
